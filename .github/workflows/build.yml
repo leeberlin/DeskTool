@@ -29,13 +29,6 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Install .NET MAUI/WinUI Workloads
-      run: |
-        dotnet workload install maui-windows --skip-manifest-update
-        dotnet workload install wasm-tools --skip-manifest-update
-      shell: pwsh
-      continue-on-error: true
-
     - name: Download Tesseract Language Data
       run: |
         mkdir -p tessdata
@@ -54,10 +47,30 @@ jobs:
           --no-restore `
           -p:Platform=${{ matrix.platform }} `
           -p:GenerateAppxPackageOnBuild=false `
-          -v:m
+          -v:d
+      shell: pwsh
+      continue-on-error: true
+
+    - name: Show XAML Compiler Output
+      if: failure()
+      run: |
+        $outputFile = Get-ChildItem -Path "src/DeskTool/obj" -Filter "output.json" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($outputFile) {
+          Write-Host "=== XAML Compiler Output ==="
+          Get-Content $outputFile.FullName
+        } else {
+          Write-Host "No output.json found"
+        }
+        
+        $inputFile = Get-ChildItem -Path "src/DeskTool/obj" -Filter "input.json" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($inputFile) {
+          Write-Host "=== XAML Compiler Input ==="
+          Get-Content $inputFile.FullName
+        }
       shell: pwsh
 
     - name: Test
+      if: success()
       run: |
         dotnet test src/DeskTool.Tests/DeskTool.Tests.csproj `
           --configuration ${{ matrix.configuration }} `
@@ -67,6 +80,7 @@ jobs:
       shell: pwsh
 
     - name: Publish
+      if: success()
       run: |
         dotnet publish src/DeskTool/DeskTool.csproj `
           --configuration ${{ matrix.configuration }} `
@@ -78,11 +92,13 @@ jobs:
       shell: pwsh
 
     - name: Copy tessdata to publish
+      if: success()
       run: |
         Copy-Item -Path "tessdata" -Destination "./publish/tessdata" -Recurse
       shell: pwsh
 
     - name: Upload Build Artifact
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: DeskTool-${{ matrix.platform }}-${{ matrix.configuration }}
@@ -92,7 +108,7 @@ jobs:
   create-installer:
     needs: build
     runs-on: windows-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.build.result == 'success'
     
     steps:
     - name: Download Build Artifact
