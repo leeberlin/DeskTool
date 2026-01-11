@@ -5,6 +5,7 @@ using PdfSharp.Pdf.IO;
 using PdfSharp.Pdf.Content;
 using PdfSharp.Pdf.Content.Objects;
 using Serilog;
+using SkiaSharp;
 using System.Text;
 
 namespace DeskTool.Core.Services;
@@ -61,10 +62,10 @@ public class PdfSharpService : IPdfService
     {
         return await Task.Run(() =>
         {
-            // PDFtoImage.Conversion.ToImage returns SKBitmap, convert to PNG stream
-            using var bitmap = Conversion.ToImage(document.FilePath, page: pageIndex, dpi: dpi);
+            var options = new RenderOptions(Dpi: dpi);
+            using var bitmap = Conversion.ToImage(document.FilePath, pageIndex, options: options);
             var ms = new MemoryStream();
-            bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Png, 90);
+            bitmap.Encode(ms, SKEncodedImageFormat.Png, 90);
             ms.Position = 0;
             return (Stream)ms;
         });
@@ -91,8 +92,9 @@ public class PdfSharpService : IPdfService
                 var dpi = (int)(thumbnailWidth / page.Width * 72);
                 dpi = Math.Max(36, Math.Min(dpi, 150)); // Clamp between 36-150
                 
-                using var bitmap = Conversion.ToImage(document.FilePath, page: i, dpi: dpi);
-                bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Png, 80);
+                var options = new RenderOptions(Dpi: dpi);
+                using var bitmap = Conversion.ToImage(document.FilePath, i, options: options);
+                bitmap.Encode(ms, SKEncodedImageFormat.Png, 80);
             }, cancellationToken);
             
             ms.Position = 0;
