@@ -1,4 +1,5 @@
 using DeskTool.Core.Services;
+using DeskTool.Services;
 using DeskTool.ViewModels;
 using DeskTool.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,10 @@ namespace DeskTool;
 /// </summary>
 public partial class App : Application
 {
-    private Window? _window;
+    /// <summary>
+    /// Gets the main window instance.
+    /// </summary>
+    public Window? MainWindow { get; private set; }
     
     /// <summary>
     /// Gets the service provider for dependency injection.
@@ -85,8 +89,8 @@ public partial class App : Application
     /// </summary>
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
-        _window.Activate();
+        MainWindow = new MainWindow();
+        MainWindow.Activate();
         
         Log.Information("MainWindow activated");
     }

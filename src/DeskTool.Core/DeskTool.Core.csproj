@@ -16,6 +16,7 @@
     <PackageReference Include="PDFsharp" Version="6.1.1" />
     <PackageReference Include="PDFtoImage" Version="4.1.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
     <PackageReference Include="Tesseract" Version="5.2.0" />
     <PackageReference Include="Serilog" Version="3.1.1" />
   </ItemGroup>

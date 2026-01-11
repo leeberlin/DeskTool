@@ -1,9 +1,10 @@
+using DeskTool.Core.Services;
 using Serilog;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 
-namespace DeskTool.Core.Services;
+namespace DeskTool.Services;
 
 /// <summary>
 /// File service implementation for Windows.

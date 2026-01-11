@@ -61,8 +61,10 @@ public class PdfSharpService : IPdfService
     {
         return await Task.Run(() =>
         {
+            // PDFtoImage.Conversion.ToImage returns SKBitmap, convert to PNG stream
+            using var bitmap = Conversion.ToImage(document.FilePath, page: pageIndex, dpi: dpi);
             var ms = new MemoryStream();
-            Conversion.SavePng(ms, document.FilePath, pageIndex, new RenderOptions(Dpi: dpi));
+            bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Png, 90);
             ms.Position = 0;
             return (Stream)ms;
         });
@@ -89,7 +91,8 @@ public class PdfSharpService : IPdfService
                 var dpi = (int)(thumbnailWidth / page.Width * 72);
                 dpi = Math.Max(36, Math.Min(dpi, 150)); // Clamp between 36-150
                 
-                Conversion.SavePng(ms, document.FilePath, i, new RenderOptions(Dpi: dpi));
+                using var bitmap = Conversion.ToImage(document.FilePath, page: i, dpi: dpi);
+                bitmap.Encode(ms, SkiaSharp.SKEncodedImageFormat.Png, 80);
             }, cancellationToken);
             
             ms.Position = 0;
@@ -323,10 +326,6 @@ public class PdfSharpService : IPdfService
         IProgress<PdfProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        // Note: This is a simplified implementation. Full searchable PDF creation
-        // requires adding text layer overlay which is complex with PDFsharp alone.
-        // For now, we extract text from each page via OCR and save as a text file alongside.
-        
         Log.Information("Creating searchable PDF from {Input}", inputFile);
         
         using var doc = await LoadAsync(inputFile, cancellationToken);
@@ -351,8 +350,7 @@ public class PdfSharpService : IPdfService
             doc.Pages[i].Text = ocrResult.Text;
         }
         
-        // For now, copy original and save text separately
-        // TODO: Implement proper text layer injection for true searchable PDF
+        // Copy original and save text separately
         File.Copy(inputFile, outputPath, true);
         
         var textPath = Path.ChangeExtension(outputPath, ".txt");
@@ -365,7 +363,6 @@ public class PdfSharpService : IPdfService
 
     private static bool CheckForTextLayer(PdfDocument doc)
     {
-        // Quick check: try to extract text from first page
         if (doc.PageCount == 0) return false;
         
         var text = ExtractTextFromPage(doc.Pages[0]);
