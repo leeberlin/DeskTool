@@ -15,7 +15,7 @@ public class PdfServiceTests
         var pages = PageRange.Parse("1-3", 10).ToList();
 
         Assert.Equal(3, pages.Count);
-        Assert.Equal([1, 2, 3], pages);
+        Assert.Equal(new[] { 1, 2, 3 }, pages);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class PdfServiceTests
         var pages = PageRange.Parse("1-2, 5, 8-10", 10).ToList();
 
         Assert.Equal(6, pages.Count);
-        Assert.Equal([1, 2, 5, 8, 9, 10], pages);
+        Assert.Equal(new[] { 1, 2, 5, 8, 9, 10 }, pages);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class PdfServiceTests
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<PdfOperationOptions>()))
-            .ReturnsAsync(new PdfSplitResult(["output.pdf"], 3, true));
+            .ReturnsAsync(new PdfSplitResult(new[] { "output.pdf" }, 3, true));
 
         var result = await mockService.Object.SplitAsync(
             "input.pdf",
@@ -126,6 +126,7 @@ public class PdfServiceTests
     {
         var mockService = new Mock<IPdfService>();
         var mockDoc = new PdfDocumentModel { PageCount = 5 };
+        var pagesArray = new[] { 1, 2 };
 
         mockService.Setup(s => s.RotatePagesAsync(
                 It.IsAny<PdfDocumentModel>(),
@@ -133,8 +134,11 @@ public class PdfServiceTests
                 It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
-        await mockService.Object.RotatePagesAsync(mockDoc, [1, 2], 90);
+        await mockService.Object.RotatePagesAsync(mockDoc, pagesArray, 90);
 
-        mockService.Verify(s => s.RotatePagesAsync(mockDoc, [1, 2], 90), Times.Once);
+        mockService.Verify(s => s.RotatePagesAsync(
+            It.Is<PdfDocumentModel>(d => d == mockDoc),
+            It.Is<IEnumerable<int>>(e => e.SequenceEqual(pagesArray)),
+            It.Is<int>(d => d == 90)), Times.Once);
     }
 }
