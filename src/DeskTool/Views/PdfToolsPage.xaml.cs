@@ -79,4 +79,12 @@ public sealed partial class PdfToolsPage : Page, IFileOpenHandler
             }
         }
     }
+
+    private void RemoveFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string filePath)
+        {
+            ViewModel.RemoveFileFromMerge(filePath);
+        }
+    }
 }

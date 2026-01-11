@@ -164,6 +164,7 @@
                         </Grid.RowDefinitions>
                         
                         <ListView Grid.Row="0"
+                                  x:Name="MergeFilesList"
                                   ItemsSource="{x:Bind ViewModel.FilesToMerge}"
                                   MaxHeight="200">
                             <ListView.ItemTemplate>
@@ -175,8 +176,8 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind}" TextTrimming="CharacterEllipsis"/>
                                         <Button Grid.Column="1" 
-                                                Command="{Binding ViewModel.RemoveFileFromMergeCommand, ElementName=ThisPage}"
-                                                CommandParameter="{x:Bind}"
+                                                Tag="{x:Bind}"
+                                                Click="RemoveFileButton_Click"
                                                 Style="{StaticResource IconButtonStyle}">
                                             <FontIcon Glyph="&#xE711;" FontSize="12"/>
                                         </Button>
