@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="DeskTool.Views.PdfToolsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:DeskTool.ViewModels"
+    mc:Ignorable="d"
+    AllowDrop="True"
+    DragOver="Page_DragOver"
+    Drop="Page_Drop">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200" MinWidth="150"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="350" MinWidth="280"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Panel: Page Thumbnails -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Toolbar -->
+            <StackPanel Grid.Row="0" Style="{StaticResource ToolbarStyle}">
+                <Button Command="{x:Bind ViewModel.OpenPdfCommand}" ToolTipService.ToolTip="Open PDF">
+                    <FontIcon Glyph="&#xE8E5;" FontSize="14"/>
+                </Button>
+                <TextBlock Text="{x:Bind ViewModel.CurrentDocument.PageCount, Mode=OneWay, FallbackValue=0}"
+                           VerticalAlignment="Center" Margin="8,0"/>
+                <TextBlock Text="pages" VerticalAlignment="Center" 
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+
+            <!-- Thumbnail List -->
+            <ListView Grid.Row="1"
+                      x:Name="ThumbnailListView"
+                      ItemsSource="{x:Bind ViewModel.PageThumbnails}"
+                      SelectedIndex="{x:Bind ViewModel.SelectedPageIndex, Mode=TwoWay}"
+                      SelectionChanged="ThumbnailListView_SelectionChanged"
+                      CanDragItems="True"
+                      CanReorderItems="True"
+                      AllowDrop="True"
+                      DragItemsCompleted="ThumbnailListView_DragItemsCompleted"
+                      Padding="8">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PageThumbnailViewModel">
+                        <Grid Padding="4" ToolTipService.ToolTip="{x:Bind PageNumber}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <Border Grid.Row="0"
+                                    Style="{StaticResource ThumbnailStyle}"
+                                    BorderBrush="{x:Bind IsSelected, Converter={StaticResource SelectionBorderBrush}, Mode=OneWay}">
+                                <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform"/>
+                            </Border>
+                            
+                            <TextBlock Grid.Row="1" 
+                                       Text="{x:Bind PageNumber, Mode=OneWay}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"
+                                       FontSize="12"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <GridSplitter Grid.Column="1" Width="6" Background="Transparent"/>
+
+        <!-- Center Panel: Page Preview -->
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Page Actions -->
+            <StackPanel Grid.Row="0" Style="{StaticResource ToolbarStyle}">
+                <Button Command="{x:Bind ViewModel.RotateSelectedCommand}" ToolTipService.ToolTip="Rotate 90°">
+                    <FontIcon Glyph="&#xE7AD;" FontSize="14"/>
+                </Button>
+                <AppBarSeparator/>
+                <Button Command="{x:Bind ViewModel.ExtractPagesCommand}" ToolTipService.ToolTip="Extract selected pages">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
+                        <TextBlock Text="Extract"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <!-- Page Viewer -->
+            <Border Grid.Row="1" Style="{StaticResource DropZoneStyle}" Margin="8">
+                <Grid>
+                    <!-- No document hint -->
+                    <StackPanel Visibility="{x:Bind ViewModel.HasDocument, Converter={StaticResource BoolToVisibilityInverter}, Mode=OneWay}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <FontIcon Glyph="&#xE8A5;" FontSize="64" 
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="Drop a PDF or click Open"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <!-- Page preview -->
+                    <ScrollViewer ZoomMode="Enabled"
+                                  MinZoomFactor="0.5"
+                                  MaxZoomFactor="4"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Visibility="{x:Bind ViewModel.HasDocument, Mode=OneWay}">
+                        <Image Source="{x:Bind ViewModel.SelectedPagePreview, Mode=OneWay}"
+                               Stretch="Uniform"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <GridSplitter Grid.Column="3" Width="6" Background="Transparent"/>
+
+        <!-- Right Panel: Operations & Text -->
+        <Grid Grid.Column="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Operations Tabs -->
+            <Pivot Grid.Row="0" Grid.RowSpan="2">
+                <!-- Split Tab -->
+                <PivotItem Header="Split">
+                    <StackPanel Spacing="12" Margin="0,12,0,0">
+                        <TextBlock Text="Page Range:" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                        <TextBox PlaceholderText="e.g., 1-3, 5, 7-10"
+                                 Text="{x:Bind ViewModel.PageRangeInput, Mode=TwoWay}"/>
+                        <Button Command="{x:Bind ViewModel.SplitPdfCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8E4;" FontSize="16"/>
+                                <TextBlock Text="Split PDF"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </PivotItem>
+
+                <!-- Merge Tab -->
+                <PivotItem Header="Merge">
+                    <Grid Margin="0,12,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <ListView Grid.Row="0"
+                                  ItemsSource="{x:Bind ViewModel.FilesToMerge}"
+                                  MaxHeight="200">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind}" TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="1" 
+                                                Command="{Binding ViewModel.RemoveFileFromMergeCommand, ElementName=ThisPage}"
+                                                CommandParameter="{x:Bind}"
+                                                Style="{StaticResource IconButtonStyle}">
+                                            <FontIcon Glyph="&#xE711;" FontSize="12"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        
+                        <StackPanel Grid.Row="1" Spacing="8">
+                            <Button Command="{x:Bind ViewModel.AddFilesToMergeCommand}"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE710;" FontSize="14"/>
+                                    <TextBlock Text="Add Files"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{x:Bind ViewModel.MergeFilesCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE8E9;" FontSize="16"/>
+                                    <TextBlock Text="Merge PDFs"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </PivotItem>
+
+                <!-- OCR Tab -->
+                <PivotItem Header="OCR">
+                    <StackPanel Spacing="12" Margin="0,12,0,0">
+                        <TextBlock Text="Extract text using OCR for scanned PDFs"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        
+                        <Button Command="{x:Bind ViewModel.ExtractTextCommand}"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8F3;" FontSize="16"/>
+                                <TextBlock Text="Extract Text (if available)"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <Button Command="{x:Bind ViewModel.OcrPdfCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8F4;" FontSize="16"/>
+                                <TextBlock Text="OCR All Pages"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </PivotItem>
+
+                <!-- Reorder Tab -->
+                <PivotItem Header="Reorder">
+                    <StackPanel Spacing="12" Margin="0,12,0,0">
+                        <TextBlock Text="Drag thumbnails in the left panel to reorder pages"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        
+                        <Button Command="{x:Bind ViewModel.SaveReorderedCommand}"
+                                Style="{StaticResource ActionButtonStyle}"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE74E;" FontSize="16"/>
+                                <TextBlock Text="Save Reordered PDF"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </PivotItem>
+            </Pivot>
+
+            <!-- Extracted Text -->
+            <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+                        <TextBlock Text="Extracted Text" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                        <Button Command="{x:Bind ViewModel.CopyTextCommand}"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTipService.ToolTip="Copy">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="14"/>
+                        </Button>
+                        <Button Command="{x:Bind ViewModel.SaveTextCommand}"
+                                Style="{StaticResource IconButtonStyle}"
+                                ToolTipService.ToolTip="Save">
+                            <FontIcon Glyph="&#xE74E;" FontSize="14"/>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBox Grid.Row="1"
+                             Text="{x:Bind ViewModel.ExtractedText, Mode=TwoWay}"
+                             Style="{StaticResource ResultTextBoxStyle}"
+                             PlaceholderText="Text will appear here..."
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                </Grid>
+            </Border>
+
+            <!-- Status & Progress -->
+            <Grid Grid.Row="3" Padding="0,8,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ProgressBar Grid.Row="0"
+                             Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
+                             Maximum="100"
+                             Visibility="{x:Bind ViewModel.IsProcessing, Mode=OneWay}"/>
+
+                <Grid Grid.Row="1" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                               Style="{StaticResource StatusTextStyle}"
+                               TextTrimming="CharacterEllipsis"/>
+                    
+                    <Button Grid.Column="1"
+                            Command="{x:Bind ViewModel.CancelCommand}"
+                            Visibility="{x:Bind ViewModel.IsProcessing, Mode=OneWay}"
+                            Style="{StaticResource IconButtonStyle}">
+                        <FontIcon Glyph="&#xE711;" FontSize="14"/>
+                    </Button>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

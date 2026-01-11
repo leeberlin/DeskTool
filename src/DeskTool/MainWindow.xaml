@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="DeskTool.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:DeskTool"
+    xmlns:views="using:DeskTool.Views"
+    Title="DeskTool"
+    Width="1280" Height="800"
+    MinWidth="800" MinHeight="600">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Background="{ThemeResource SystemAccentColor}" Padding="16,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock Grid.Column="0" 
+                       Text="DeskTool" 
+                       Style="{StaticResource TitleTextBlockStyle}"
+                       Foreground="White"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Navigation and Content -->
+        <NavigationView x:Name="NavView"
+                        Grid.Row="1"
+                        IsSettingsVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        PaneDisplayMode="Left"
+                        SelectionChanged="NavView_SelectionChanged"
+                        Loaded="NavView_Loaded">
+            
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Image OCR" Tag="ImageOcr" Icon="Pictures">
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="OcrBadge" Visibility="Collapsed"/>
+                    </NavigationViewItem.InfoBadge>
+                </NavigationViewItem>
+                <NavigationViewItem Content="PDF Tools" Tag="PdfTools" Icon="Document"/>
+            </NavigationView.MenuItems>
+
+            <Frame x:Name="ContentFrame" Padding="24"/>
+            
+        </NavigationView>
+    </Grid>
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop/>
+    </Window.SystemBackdrop>
+</Window>

@@ -1,0 +1,174 @@
+name: Build DeskTool
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  SOLUTION_PATH: 'DeskTool.sln'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        platform: [x64]
+        configuration: [Release]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Download Tesseract Language Data
+      run: |
+        mkdir -p tessdata
+        Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata" -OutFile "tessdata/eng.traineddata"
+        Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/vie.traineddata" -OutFile "tessdata/vie.traineddata"
+        Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/deu.traineddata" -OutFile "tessdata/deu.traineddata"
+      shell: pwsh
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+    - name: Build
+      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ matrix.configuration }} --no-restore -p:Platform=${{ matrix.platform }}
+
+    - name: Test
+      run: dotnet test src/DeskTool.Tests/DeskTool.Tests.csproj --configuration ${{ matrix.configuration }} --no-build --verbosity normal -p:Platform=${{ matrix.platform }}
+
+    - name: Publish
+      run: |
+        dotnet publish src/DeskTool/DeskTool.csproj `
+          --configuration ${{ matrix.configuration }} `
+          --runtime win-${{ matrix.platform }} `
+          --self-contained true `
+          --output ./publish `
+          -p:PublishReadyToRun=true
+      shell: pwsh
+
+    - name: Copy tessdata to publish
+      run: |
+        Copy-Item -Path "tessdata" -Destination "./publish/tessdata" -Recurse
+      shell: pwsh
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DeskTool-${{ matrix.platform }}-${{ matrix.configuration }}
+        path: ./publish/
+        retention-days: 30
+
+  create-msix:
+    needs: build
+    runs-on: windows-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: DeskTool-x64-Release
+        path: ./publish
+
+    - name: Setup Windows SDK
+      uses: GuillaumeFaloworkerBuildTools/setup-windows-sdk@v1
+      with:
+        version: '10.0.22621.0'
+      continue-on-error: true
+
+    - name: Create MSIX Package
+      run: |
+        # Create AppxManifest
+        $manifest = @"
+        <?xml version="1.0" encoding="utf-8"?>
+        <Package
+          xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+          IgnorableNamespaces="uap rescap">
+          <Identity Name="DeskTool" Publisher="CN=DeskTool" Version="1.0.0.0" ProcessorArchitecture="x64" />
+          <Properties>
+            <DisplayName>DeskTool</DisplayName>
+            <PublisherDisplayName>DeskTool Developer</PublisherDisplayName>
+            <Logo>Assets\StoreLogo.png</Logo>
+          </Properties>
+          <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+          </Dependencies>
+          <Resources><Resource Language="en-us"/></Resources>
+          <Applications>
+            <Application Id="App" Executable="DeskTool.exe" EntryPoint="Windows.FullTrustApplication">
+              <uap:VisualElements DisplayName="DeskTool" Description="OCR and PDF Tools" BackgroundColor="transparent"
+                Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+                <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
+              </uap:VisualElements>
+            </Application>
+          </Applications>
+          <Capabilities><rescap:Capability Name="runFullTrust" /></Capabilities>
+        </Package>
+        "@
+        
+        $manifest | Out-File -FilePath "./publish/AppxManifest.xml" -Encoding utf8
+        
+        # Create placeholder assets
+        mkdir -p ./publish/Assets -Force
+        $placeholder = [byte[]]@(137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,180,0,0,0,0,73,69,78,68,174,66,96,130)
+        @("StoreLogo.png", "Square150x150Logo.png", "Square44x44Logo.png", "Wide310x150Logo.png") | ForEach-Object {
+          [System.IO.File]::WriteAllBytes("./publish/Assets/$_", $placeholder)
+        }
+        
+        # Create MSIX (if makeappx available)
+        $makeappx = Get-Command makeappx.exe -ErrorAction SilentlyContinue
+        if ($makeappx) {
+          & makeappx.exe pack /d ./publish /p ./DeskTool_x64.msix /o
+        } else {
+          Write-Host "makeappx not found, creating ZIP instead"
+          Compress-Archive -Path ./publish/* -DestinationPath ./DeskTool_x64.zip
+        }
+      shell: pwsh
+
+    - name: Upload MSIX/ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: DeskTool-Installer
+        path: |
+          ./DeskTool_x64.msix
+          ./DeskTool_x64.zip
+        retention-days: 90
+        if-no-files-found: warn
+
+  release:
+    needs: [build, create-msix]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: DeskTool v1.0.${{ github.run_number }}
+        draft: false
+        prerelease: false
+        files: |
+          ./artifacts/DeskTool-Installer/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,35 @@
+# DeskTool
+
+.vs/
+.vscode/
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.cache
+*.log
+
+# Rider
+.idea/
+
+# NuGet
+packages/
+*.nupkg
+
+# Build
+publish/
+*.msix
+*.appx
+
+# Temp
+*.tmp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tessdata (downloaded by build script/CI)
+tessdata/
